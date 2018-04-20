@@ -1,7 +1,7 @@
 Package: CGPfunctions
 Title: Powell Miscellaneous Functions for Teaching and Learning
         Statistics
-Version: 0.1
+Version: 0.3
 Authors@R: person("Chuck", "Powell", email = "ibecav@gmail.com", role = c("aut", "cre"))
 Description: Miscellaneous functions useful for teaching statistics as well as actually practicing the art. They typically are not “new” methods but rather wrappers around either base R or other packages. Currently contains: 'Plot2WayANOVA' which as the name implies conducts a 2 way ANOVA and plots the results using 'ggplot2'. 'neweta' which is a helper function that appends the results of a Type II eta squared calculation onto a classic ANOVA table. Mode which finds the modal value in a vector of data. 'SeeDist' which wraps around 'ggplot2' to provide visualizations of univariate data.
 Depends: R (>= 3.4.0)
@@ -10,13 +10,14 @@ Encoding: UTF-8
 LazyData: true
 Imports: car, dplyr, ggplot2 (>= 2.2.1), methods, rlang (>= 0.1.6),
         tibble
-Suggests: lsr, knitr, rmarkdown
+Suggests: lsr, knitr, productplots, rmarkdown
 VignetteBuilder: knitr
 RoxygenNote: 6.0.1
 URL: https://github.com/ibecav/CGPfunctions
+BugReports: https://github.com/ibecav/CGPfunctions/issues
 NeedsCompilation: no
-Packaged: 2018-03-19 17:58:10 UTC; cpowell
+Packaged: 2018-04-19 20:57:44 UTC; cpowell
 Author: Chuck Powell [aut, cre]
 Maintainer: Chuck Powell <ibecav@gmail.com>
 Repository: CRAN
-Date/Publication: 2018-03-19 19:19:34 UTC
+Date/Publication: 2018-04-20 03:06:15 UTC
