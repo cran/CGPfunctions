@@ -1,0 +1,98 @@
+---
+title: "Using newggslopegraph"
+author: "Chuck Powell"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using newggslopegraph}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+This function is designed to automate the process of producing a [Tufte style slopegraph](https://www.edwardtufte.com/bboard/q-and-a-fetch-msg?msg_id=0003nk) using `ggplot2`. 
+
+I've been aware of slopegraphs and bumpcharts for quite some time, and I certainly am aware of [Tufte's work](https://www.edwardtufte.com/tufte/). As an amateur military historian I've always loved, for example, [his poster](https://www.edwardtufte.com/tufte/posters) depicting Napoleon's Russian Campaign. So when I saw the article from [Murtaza Haider](https://www.r-bloggers.com/author/murtaza-haider/) titled *"Edward Tufte’s Slopegraphs and political fortunes in Ontario"* I just had to take a shot at writing a function.
+
+To make it a little easier to get started with the function I have taken the libefty of providing the cancer data in a format where it is immediately useable.  Please see `?newcancer`.
+
+## Installation and setup
+
+Long term I'll try and ensure the version on `CRAN` is well maintained but for now you're better served by grabbing the current version from GITHUB.
+
+```{r setup}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+# Install from CRAN
+# install.packages("CGPfunctions")
+
+# Or the development version from GitHub
+# install.packages("devtools")
+# devtools::install_github("ibecav/CGPfunctions")
+library(CGPfunctions)
+```
+
+## Simple examples
+
+If you're unfamiliar with slopegraphs or just want to see what the display is all about the dataset I've provided can get you started in one line
+
+```{r ggslope1, fig.height=10, fig.width=7}
+newggslopegraph(newcancer,Year,Survival,Type)
+```
+
+Optionally you can provide important label information through `Title`, `Subtitle`, and `Caption` arguments.  You can suppress them all together by setting them `= NULL` but since I think they are very important the default is to gently remind you, that you have not tpovidecd any information.  Let's provide a title and sub-title but skip the caption.
+
+```{r ggslope2, fig.height=10, fig.width=7}
+newggslopegraph(dataframe = newcancer,
+                Times = Year,
+                Measurement = Survival,
+                Grouping = Type,
+                Title = "Estimates of Percent Survival Rates",
+                SubTitle = "Based on: Edward Tufte, Beautiful Evidence, 174, 176.",
+                Caption = NULL
+                )
+```
+
+## How it all works
+
+It's all well and good to get the little demo to work, but it might be useful for you to understand how to extend it out to data you're interested in.
+
+You'll need a dataframe with at least three columns.  The function will do some basic error checking and complain if you don't hit the essentials.
+
+1.  `Times` is the column in the dataframe that corresponds to the x axis of the plot and is normally a set of moments in time expressed as either characters, factors or ordered factors (in our case `newcancer$Year`.  If it is truly time series data (esepcially with a lot of dates you're much better off using an R function purpose built for that). In `newcancer` it's an ordered factor, mainly because if we fed the information in as character the sort order would be `Year 10, Year 15, Year 20, Year 5` which is very suboptimal. A command like `newcancer$Year <- factor(newcancer$Year,levels = c("Year.5", "Year.10", "Year.15", "Year.20"), labels = c("5 Year","10 Year","15 Year","20 Year"), ordered = TRUE)` would be the way to force things they way you want them.
+2.  `Measurement` is the column that has the actual numbers you want to display along the y axis. Frequently that's a percentage but it could just as easily be any number.  Watch out for scaling issues here you'll want to ensure that its not disparate. In our case `newcancer$Survival` is the percentage of patients surviving at that point in time, so the maximum scale is 0 to 100.
+3.  `Grouping` is what controls how many individual lines are portrayed. Every attempt is made to color them and label them in ways that lead to clarity but eventually you can have too many. In our example case the column is `newcancer$Type` for the type of cancer or location.
+
+## Another quick example
+
+This is loosely based off a blog post from [Murtaza Haider titled “Edward Tufte’s Slopegraphs and political fortunes in Ontario”](https://www.r-bloggers.com/author/murtaza-haider/) that led to my developing this function [chronicled here](https://ibecav.github.io/slopegraph/).
+
+In this case we're going to plot the percent of the vote captured by some Canadian political parties. 
+
+> The data is loosely based on real data but is not actually accurate. 
+
+`moredata$Date` is the hypothetical polling date as a factor (in this case `character` would work equally well). `moredata$Party` is the various political parties and `moredata$Pct` is the percentage of the vote they are estimated to have.
+
+```{r ggslope3, fig.height=5, fig.width=5}
+moredata <- structure(list(Date = structure(c(1L, 1L, 1L, 1L, 1L, 2L, 2L, 2L, 2L, 2L, 3L, 3L, 3L, 3L, 3L), 
+                                            .Label = c("11-May-18", "18-May-18", "25-May-18"), 
+                                            class = "factor"), 
+                           Party = structure(c(5L, 3L, 2L, 1L, 4L, 5L, 3L, 2L, 1L, 4L, 5L, 3L, 2L, 1L, 4L), 
+                                             .Label = c("Green", "Liberal", "NDP", "Others", "PC"), 
+                                             class = "factor"), 
+                           Pct = c(42.3, 28.4, 22.1, 5.4, 1.8, 41.9, 29.3, 22.3, 5, 1.4, 41.9, 26.8, 26.8, 5, 1.4)), 
+                      class = "data.frame", 
+                      row.names = c(NA, -15L))
+#tail(moredata)
+newggslopegraph(moredata,Date,Pct,Party, Title = "Notional data", SubTitle = NULL, Caption = NULL)
+```
+
+### Leaving Feedback
+If you like CGPfunctions, please consider Filing a GitHub issue by [leaving feedback here](https://github.com/ibecav/CGPfunctions/issues), or by contacting me at ibecav at gmail.com by email.
+
+
+### License
+<a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+
+> "He who gives up [code] safety for [code] speed deserves neither."
+([via](https://twitter.com/hadleywickham/status/504368538874703872))
