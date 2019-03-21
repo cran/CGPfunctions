@@ -50,6 +50,14 @@
 #' "Others" = "gray", "PC" = "blue"). Any input must be character, and the length 
 #' of a vector \bold{should} equal the number of levels in \code{Grouping}. If the 
 #' user does not provide enough colors they will be recycled.
+#' @param WiderLabels logical, set this value to \code{TRUE} if your "labels" or 
+#' \code{Grouping} variable values tend to be long as they are in the \code{newcancer}
+#' dataset.  This setting will give them more room in the same plot size. 
+#' @param RemoveMissing logical, by default set to \code{TRUE} so that if any \code{Measurement}
+#' is missing \bold{all rows} for that \code{Grouping} are removed. If set to \code{FALSE} then
+#' the function will try to remove and graph what data it does have. \bold{N.B.} missing values
+#' for \code{Times} and \code{Grouping} are never permitted and will generate a fatal error with
+#' a warning. 
 #' 
 #' 
 #' @return a plot of type ggplot to the default plot device
@@ -59,24 +67,34 @@
 #' @importFrom ggrepel geom_text_repel
 #'
 #' @author Chuck Powell
-#' @seealso \code{\link{newcancer}}
+#' @seealso \code{\link{newcancer}} and  \code{\link{newgdp}}
 #' @references Based on: Edward Tufte, Beautiful Evidence (2006), pages 174-176.
 #' @examples
-#'
+#' # the minimum command to generate a plot
 #' newggslopegraph(newcancer, Year, Survival, Type)
-#' newggslopegraph(newcancer, Year, Survival, Type, Title = "Estimates of Percent Survival Rates")
+#' 
+#' # adding a title which is always recommended
+#' newggslopegraph(newcancer, Year, Survival, Type, 
+#'                 Title = "Estimates of Percent Survival Rates",
+#'                 SubTitle = NULL,
+#'                 Caption = NULL)
+#'                 
+#' # simple formatting changes
 #' newggslopegraph(newcancer, Year, Survival, Type, 
 #'                 Title = "Estimates of Percent Survival Rates", 
-#'                 LineColor = "black", 
-#'                 LineThickness = 1, 
+#'                 LineColor = "darkgray", 
+#'                 LineThickness = .5, 
 #'                 SubTitle = NULL, 
 #'                 Caption = NULL)
+#'                 
+#' # complex formatting with recycling and wider labels see vignette for more examples
 #' newggslopegraph(newcancer, Year, Survival, Type, 
 #'                 Title = "Estimates of Percent Survival Rates", 
 #'                 SubTitle = "Based on: Edward Tufte, Beautiful Evidence, 174, 176.",
 #'                 Caption = "https://www.edwardtufte.com/bboard/q-and-a-fetch-msg?msg_id=0003nk",
 #'                 LineColor = c("black", "red", "grey"), 
-#'                 LineThickness = .5)
+#'                 LineThickness = .5,
+#'                 WiderLabels = TRUE)
 #'
 #'
 newggslopegraph <- function(dataframe, Times, Measurement, Grouping,
@@ -90,8 +108,11 @@ newggslopegraph <- function(dataframe, Times, Measurement, Grouping,
                             CaptionTextSize = 8,
                             LineThickness = 1,
                             LineColor = "ByGroup",
-                            DataTextSize = 2.5)
+                            DataTextSize = 2.5,
+                            WiderLabels = FALSE,
+                            RemoveMissing = TRUE)
   {
+  . = NULL # appease CRAN since you can't import this convention from dplyr or ggplot2
   # Since ggplot2 objects are just regular R objects, put them in a list
   MySpecial <- list(
     # Format tweaks
@@ -131,11 +152,17 @@ newggslopegraph <- function(dataframe, Times, Measurement, Grouping,
   if (!NTimes %in% names(dataframe)) {
     stop(paste0("'", NTimes, "' is not the name of a variable in '", Ndataframe, "'"), call. = FALSE)
   }
+  if (anyNA(dataframe[[NTimes]])) {
+    stop(paste0("'", NTimes, "' can not have missing data please remove those rows!"), call. = FALSE)
+  }
   if (!NMeasurement %in% names(dataframe)) {
     stop(paste0("'", NMeasurement, "' is not the name of a variable in '", Ndataframe, "'"), call. = FALSE)
   }
   if (!NGrouping %in% names(dataframe)) {
     stop(paste0("'", NGrouping, "' is not the name of a variable in '", Ndataframe, "'"), call. = FALSE)
+  }
+  if (anyNA(dataframe[[NGrouping]])) {
+    stop(paste0("'", NGrouping, "' can not have missing data please remove those rows!"), call. = FALSE)
   }
   if (!class(dataframe[[NMeasurement]]) %in% c("integer","numeric")) {
     stop(paste0("Sorry I need the measured variable '", NMeasurement, "' to be a number"), call. = FALSE)
@@ -150,6 +177,11 @@ newggslopegraph <- function(dataframe, Times, Measurement, Grouping,
       }
     }
   }
+
+  NumbOfLevels <- nlevels(factor(dataframe[[NTimes]]))
+  if (WiderLabels) {
+    MySpecial <- c(MySpecial, expand_limits(x = c(0, NumbOfLevels+1)))
+  }
   
   Times <- enquo(Times)
   Measurement <- enquo(Measurement)
@@ -157,7 +189,7 @@ newggslopegraph <- function(dataframe, Times, Measurement, Grouping,
 
   if (length(LineColor) > 1) { 
     if (length(LineColor) < length(unique(dataframe[[NGrouping]]))) {
-      message(paste0("\nYou gave me ", length(LineColor), " colors I'm recycling because you have ", length(unique(dataframe[[NGrouping]])), " ", NGrouping, "\n"))
+      message(paste0("\nYou gave me ", length(LineColor), " colors I'm recycling colors because you have ", length(unique(dataframe[[NGrouping]])), " ", NGrouping, "s\n"))
       LineColor <- rep(LineColor, length.out = length(unique(dataframe[[NGrouping]])))
     }
     LineGeom <- list(geom_line(aes_(color = Grouping), size = LineThickness), scale_color_manual(values = LineColor))
@@ -168,26 +200,47 @@ newggslopegraph <- function(dataframe, Times, Measurement, Grouping,
       LineGeom <- list(geom_line(aes_(), size = LineThickness, color = LineColor))
     }
   }
+
+  # complex logic to sort out missing values if any
+  if (anyNA(dataframe[[NMeasurement]])) { # are there any missing
+    if (RemoveMissing) { # which way should we handle them
+      dataframe <- dataframe %>%
+                  group_by(!! Grouping) %>% 
+                  filter(!anyNA(!! Measurement)) %>%
+                  droplevels()
+    } else {
+      dataframe <- dataframe %>%
+        filter(!is.na(!! Measurement))
+    }
+  }
   
     dataframe %>%
-      filter(!is.na(!! Times), !is.na(!! Measurement), !is.na(!! Grouping))  %>%
       ggplot(aes_(group=Grouping, y=Measurement, x=Times)) +
         LineGeom +
-        geom_text_repel(data = dataframe %>% filter(!! Times == min(!! Times)),
+        geom_text_repel(data = . %>% filter(!! Times == min(!! Times)),
                         aes_(label = Grouping) ,
                         hjust = "left",
+                        box.padding = 0.10,
+                        segment.color = "gray",
+                        segment.alpha = 0.6,
                         fontface = "bold",
                         size = YTextSize,
-                        nudge_x = -.45,
+                        nudge_x = -1.95,
                         direction = "y") +
-        geom_text_repel(data = dataframe %>% filter(!! Times == max(!! Times)),
+        geom_text_repel(data = . %>% filter(!! Times == max(!! Times)),
                         aes_(label = Grouping),
                         hjust = "right",
+                        box.padding = 0.10,
+                        segment.color = "gray",
+                        segment.alpha = 0.6,
                         fontface = "bold",
                         size = YTextSize,
-                        nudge_x = .5,
+                        nudge_x = 1.95,
                         direction = "y") +
-        geom_label(aes_(label = Measurement), size = DataTextSize, label.padding = unit(0.05, "lines"), label.size = 0.0) +
+        geom_label(aes_(label = Measurement), 
+                   size = DataTextSize, 
+                   label.padding = unit(0.05, "lines"), 
+                   label.size = 0.0) +
         MySpecial +
         labs(
               title = Title,

@@ -37,3 +37,50 @@ moredata <- structure(list(Date = structure(c(1L, 1L, 1L, 1L, 1L, 2L, 2L, 2L, 2L
 #tail(moredata)
 newggslopegraph(moredata,Date,Pct,Party, Title = "Notional data", SubTitle = NULL, Caption = NULL)
 
+## ----ggslope4, fig.height=5, fig.width=5---------------------------------
+newggslopegraph(moredata, Date, Pct, Party, 
+                Title = "Notional data", 
+                SubTitle = "none", 
+                Caption = "imaginary",
+                LineColor = "gray", 
+                LineThickness = .5,
+                YTextSize = 4
+                )
+
+## ----ggslope5, fig.height=5, fig.width=5---------------------------------
+newggslopegraph(moredata, Date, Pct, Party, 
+                Title = "Notional data", 
+                SubTitle = "none", 
+                Caption = "imaginary",
+                LineColor = c("Green" = "gray", "Liberal" = "green", "NDP" = "red", "Others" = "gray", "PC" = "gray"), 
+                LineThickness = .5,
+                YTextSize = 4
+                )
+
+## ----ggslope6, fig.height=12, fig.width=6--------------------------------
+newggslopegraph(newgdp, 
+                Year, 
+                GDP, 
+                Country, 
+                Title = "Gross GDP", 
+                SubTitle = NULL, 
+                Caption = NULL,
+                LineThickness = .5,
+                YTextSize = 4,
+                LineColor = c(rep("gray",3), "red", rep("gray",3), "red", rep("gray",10))
+                )
+
+## ----ggslope7, fig.height=7, fig.width=6---------------------------------
+newgdp$rGDP <- signif(newgdp$GDP, 2)
+newggslopegraph(newgdp, 
+                Year, 
+                rGDP, 
+                Country, 
+                Title = "Gross GDP", 
+                SubTitle = NULL, 
+                Caption = NULL,
+                LineThickness = .5,
+                YTextSize = 4,
+                LineColor = c(rep("gray",6), rep("red",2), "red", rep("gray",10))
+                )
+

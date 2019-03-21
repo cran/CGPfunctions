@@ -8,7 +8,8 @@ newggslopegraph(dataframe, Times, Measurement, Grouping,
   Title = "No title given", SubTitle = "No subtitle given",
   Caption = "No caption given", XTextSize = 12, YTextSize = 3,
   TitleTextSize = 14, SubTitleTextSize = 10, CaptionTextSize = 8,
-  LineThickness = 1, LineColor = "ByGroup", DataTextSize = 2.5)
+  LineThickness = 1, LineColor = "ByGroup", DataTextSize = 2.5,
+  WiderLabels = FALSE, RemoveMissing = TRUE)
 }
 \arguments{
 \item{dataframe}{a dataframe or an object that can be coerced to a dataframe. 
@@ -69,6 +70,16 @@ user does not provide enough colors they will be recycled.}
 
 \item{DataTextSize}{Optionally the font size of the plotted data points. DataTextSize = 2.5 
 is the default must be a numeric.}
+
+\item{WiderLabels}{logical, set this value to \code{TRUE} if your "labels" or 
+\code{Grouping} variable values tend to be long as they are in the \code{newcancer}
+dataset.  This setting will give them more room in the same plot size.}
+
+\item{RemoveMissing}{logical, by default set to \code{TRUE} so that if any \code{Measurement}
+is missing \bold{all rows} for that \code{Grouping} are removed. If set to \code{FALSE} then
+the function will try to remove and graph what data it does have. \bold{N.B.} missing values
+for \code{Times} and \code{Grouping} are never permitted and will generate a fatal error with
+a warning.}
 }
 \value{
 a plot of type ggplot to the default plot device
@@ -81,21 +92,31 @@ Takes a dataframe as input, with three named columns being used to draw the plot
 Makes the required adjustments to the ggplot2 parameters and returns the plot.
 }
 \examples{
-
+# the minimum command to generate a plot
 newggslopegraph(newcancer, Year, Survival, Type)
-newggslopegraph(newcancer, Year, Survival, Type, Title = "Estimates of Percent Survival Rates")
+
+# adding a title which is always recommended
+newggslopegraph(newcancer, Year, Survival, Type, 
+                Title = "Estimates of Percent Survival Rates",
+                SubTitle = NULL,
+                Caption = NULL)
+                
+# simple formatting changes
 newggslopegraph(newcancer, Year, Survival, Type, 
                 Title = "Estimates of Percent Survival Rates", 
-                LineColor = "black", 
-                LineThickness = 1, 
+                LineColor = "darkgray", 
+                LineThickness = .5, 
                 SubTitle = NULL, 
                 Caption = NULL)
+                
+# complex formatting with recycling and wider labels see vignette for more examples
 newggslopegraph(newcancer, Year, Survival, Type, 
                 Title = "Estimates of Percent Survival Rates", 
                 SubTitle = "Based on: Edward Tufte, Beautiful Evidence, 174, 176.",
                 Caption = "https://www.edwardtufte.com/bboard/q-and-a-fetch-msg?msg_id=0003nk",
                 LineColor = c("black", "red", "grey"), 
-                LineThickness = .5)
+                LineThickness = .5,
+                WiderLabels = TRUE)
 
 
 }
@@ -103,7 +124,7 @@ newggslopegraph(newcancer, Year, Survival, Type,
 Based on: Edward Tufte, Beautiful Evidence (2006), pages 174-176.
 }
 \seealso{
-\code{\link{newcancer}}
+\code{\link{newcancer}} and  \code{\link{newgdp}}
 }
 \author{
 Chuck Powell
