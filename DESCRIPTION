@@ -1,7 +1,7 @@
 Package: CGPfunctions
 Title: Powell Miscellaneous Functions for Teaching and Learning
         Statistics
-Version: 0.5.0
+Version: 0.5.2
 Authors@R: person("Chuck", "Powell", email = "ibecav@gmail.com", role = c("aut", "cre"))
 Description: Miscellaneous functions useful for teaching statistics as well as actually practicing the art. They typically are not “new” methods but rather wrappers around either base R or other packages.
 Depends: R (>= 3.4.0)
@@ -10,14 +10,14 @@ Encoding: UTF-8
 LazyData: true
 Imports: broomExtra, car, devtools, dplyr, ggplot2 (>= 2.2.1), ggrepel,
         methods, pwr, rlang (>= 0.1.6), scales, sjstats, tibble
-Suggests: lsr, knitr, productplots, rmarkdown
+Suggests: BSDA, lsr, janitor, knitr, productplots, rmarkdown
 VignetteBuilder: knitr
 RoxygenNote: 6.1.1
 URL: https://github.com/ibecav/CGPfunctions
 BugReports: https://github.com/ibecav/CGPfunctions/issues
 NeedsCompilation: no
-Packaged: 2019-03-21 14:11:47 UTC; cpowell
+Packaged: 2019-03-22 16:28:40 UTC; cpowell
 Author: Chuck Powell [aut, cre]
 Maintainer: Chuck Powell <ibecav@gmail.com>
 Repository: CRAN
-Date/Publication: 2019-03-21 14:33:33 UTC
+Date/Publication: 2019-03-22 18:16:21 UTC
