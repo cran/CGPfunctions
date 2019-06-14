@@ -22,8 +22,12 @@
 #'   and omega squared values per factor. If the design is unbalanced warn  
 #'   the user and use Type II sums of squares
 #' \item Produce a standard ANOVA table with additional columns 
+#' \item Use the \code{\link[DescTools]{PostHocTest}} for producing a table 
+#'   of post hoc comparisons for all effects that were significant
 #' \item Use the \code{\link[car]{leveneTest}} for testing Homogeneity 
 #'   of Variance assumption with Brown-Forsythe
+#' \item Use the \code{\link[DescTools]{PostHocTest}} for conducting 
+#'   post hoc tests for effects that were significant
 #' \item Use the \code{\link[stats]{shapiro.test}} for testing normality
 #'   assumption with Shapiro-Wilk
 #' \item Use \code{ggplot2} to plot an interaction plot of the type the 
@@ -34,12 +38,28 @@
 #'   along with dots for individual data points shaded by the second 
 #'   factor, the emphasis is on the interaction lines.
 #'
-#' @usage Plot2WayANOVA(formula, dataframe = NULL, confidence=.95,
-#'     plottype = "bar", xlab = NULL, ylab = NULL, title = NULL,
-#'     subtitle = NULL, interact.line.size = 2, mean.plotting = FALSE,
-#'     mean.ci = TRUE, mean.size = 4, mean.color = "darkred",
-#'     mean.label.size = 3, mean.label.color = "black", overlay.type = NULL,
-#'     PlotSave = FALSE)
+#' @usage Plot2WayANOVA(formula, 
+#'                dataframe = NULL, 
+#'                confidence=.95,
+#'                plottype = "line", 
+#'                xlab = NULL, 
+#'                ylab = NULL, 
+#'                title = NULL,
+#'                subtitle = NULL, 
+#'                interact.line.size = 2, 
+#'                ci.line.size = 1, 
+#'                mean.label = FALSE,
+#'                mean.ci = TRUE, 
+#'                mean.size = 4, 
+#'                mean.shape = 23, 
+#'                mean.color = "darkred",
+#'                mean.label.size = 3, 
+#'                mean.label.color = "black", 
+#'                offset.style = "none",
+#'                overlay.type = NULL,
+#'                posthoc.method = "scheffe",
+#'                show.dots = FALSE,
+#'                PlotSave = FALSE)
 #' @param formula a formula with a numeric dependent (outcome) variable, 
 #'   and two independent (predictor) variables e.g. \code{mpg ~ am * vs}.
 #'   The independent variables are coerced to factors (with warning) if 
@@ -56,7 +76,9 @@
 #'   model information is provided as a subtitle.
 #' @param interact.line.size Line size for the line connecting the group means
 #'   (Default: `2`).
-#' @param mean.plotting Logical that decides whether the value of the group 
+#' @param ci.line.size Line size for the confidence interval bracketing 
+#'   the group means (Default: `1`).
+#' @param mean.label Logical that decides whether the value of the group 
 #'   mean is to be displayed (Default: `FALSE`).
 #' @param mean.ci Logical that decides whether the confidence interval for 
 #'   group means is to be displayed (Default: `TRUE`).
@@ -66,15 +88,28 @@
 #' the label displaying mean. Defaults: `3`, `"black"`, respectively.
 #' @param mean.size Point size for the data point corresponding to mean
 #'   (Default: `4`).
+#' @param mean.shape Shape of the plot symbol for the mean
+#'   (Default: `23` which is a diamond).
+#' @param offset.style A character string (e.g., `"wide"` or `"narrow"`, 
+#'   or `"none"`) which controls whether items are offset from the
+#'   centerline for clarity. Useful when you want to add individual
+#'   datapoints or confdence interval lines overlap. (Default: `"none"`).
 #' @param overlay.type A character string (e.g., `"box"` or `"violin"`), 
 #'   if you wish to overlay that information on factor1
+#' @param posthoc.method A character string, one of "hsd", "bonf", "lsd", 
+#'   "scheffe", "newmankeuls", defining the method for the pairwise comparisons. 
+#'   (Default: `"scheffe"`).
+#' @param show.dots Logical that decides whether the individual data points 
+#'   are displayed (Default: `FALSE`).
 #' @return A list with 5 elements which is returned invisibly. These items
 #'   are always sent to the console for display but for user convenience 
 #'   the function also returns a named list with the following items
 #'   in case the user desires to save them or further process them -
 #'   \code{$ANOVATable},\code{$ModelSummary}, \code{$MeansTable}, 
-#'   \code{$BFTest}, and \code{$SWTest}.
+#'   \code{$PosthocTable}, \code{$BFTest}, and \code{$SWTest}.
 #'   The plot is always sent to the default plot device
+#'
+#' @references: ANOVA: Delacre, Leys, Mora, & Lakens, *PsyArXiv*, 2018
 #'
 #' @author Chuck Powell
 #' @seealso \code{\link[stats]{aov}}, \code{\link[car]{leveneTest}},
@@ -87,9 +122,30 @@
 #'               mtcars, 
 #'               plottype = "line", 
 #'               overlay.type = "box", 
-#'               mean.plotting = TRUE)
+#'               mean.label = TRUE)
 #' Plot2WayANOVA(mpg ~ am * vs, mtcars, confidence = .99)
-#' @importFrom dplyr group_by summarise %>% n
+#' 
+#' # Create a new dataset
+#' library(dplyr)
+#' library(ggplot2)
+#' library(stringi)
+#' newmpg <- mpg %>% 
+#'           filter(cyl != 5) %>% 
+#'           mutate(am = stringi::stri_extract(trans, regex = "auto|manual"))
+#' Plot2WayANOVA(formula = hwy ~ am * cyl,
+#'               dataframe = newmpg,
+#'               ylab = "Highway mileage",
+#'               xlab = "Transmission type",
+#'               plottype = "line",
+#'               offset.style = "wide",
+#'               overlay.type = "box",
+#'               mean.label = TRUE, 
+#'               mean.shape = 20, 
+#'               mean.size = 5, 
+#'               mean.label.size = 5,
+#'               show.dots = TRUE)
+#'
+#' @importFrom dplyr group_by summarise %>% n select filter
 #' @import ggplot2
 #' @import rlang
 #' @importFrom methods is
@@ -98,24 +154,30 @@
 #' @importFrom car leveneTest Anova
 #' @importFrom sjstats anova_stats
 #' @importFrom broomExtra glance
+#' @importFrom DescTools PostHocTest
 #' @export
 #'
 Plot2WayANOVA <- function(formula,
                           dataframe = NULL,
                           confidence = .95,
-                          plottype = "bar",
+                          plottype = "line",
                           xlab = NULL,
                           ylab = NULL,
                           title = NULL,
                           subtitle = NULL,
                           interact.line.size = 2,
-                          mean.plotting = FALSE,
+                          ci.line.size = 1,
+                          mean.label = FALSE,
                           mean.ci = TRUE,
                           mean.size = 4,
+                          mean.shape = 23,
                           mean.color = "darkred",
                           mean.label.size = 3,
                           mean.label.color = "black",
+                          offset.style = "none",
                           overlay.type = NULL,
+                          posthoc.method = "scheffe",
+                          show.dots = FALSE,
                           PlotSave = FALSE) {
 
   # -------- to appease R CMD Check? ----------------
@@ -124,6 +186,8 @@ Plot2WayANOVA <- function(formula,
   CIMuliplier <- NULL
   LowerBound <- NULL
   UpperBound <- NULL
+  p.value <- NULL
+  term <- NULL
   
   # -------- error checking ----------------
   if (!requireNamespace("ggplot2")) {
@@ -217,6 +281,7 @@ Plot2WayANOVA <- function(formula,
   
   # -------- check variable types ----------------
   
+  dataframe <- as.data.frame(dataframe)
   if (!is(dataframe[, depvar], "numeric")) {
     stop("dependent variable must be numeric")
   }
@@ -278,6 +343,16 @@ Plot2WayANOVA <- function(formula,
   # Grab the residuals and run Shapiro-Wilk
   MyAOV_residuals <- residuals(object = MyAOV)
   SWTest <- shapiro.test(x = MyAOV_residuals) # run Shapiro-Wilk test
+  # Grab on the effects that were significant in omnibuds test
+  sigfactors <- filter(WithETA, p.value <= 1 - confidence) %>% select(term)
+  if(nrow(sigfactors) > 0) {
+    posthocresults <- PostHocTest(MyAOV, 
+                                  method = posthoc.method, 
+                                  conf.level = confidence,
+                                  which =  as.character(sigfactors[,1]))
+  } else {
+    posthocresults <- "No signfiicant effects"
+  }
   
   # -------- save the common plot items as a list to be used ---------
   
@@ -306,13 +381,32 @@ Plot2WayANOVA <- function(formula,
   ciupper <- round(ULr2, 3)
   AICnumber <- round(model_summary$AIC, 1)
   BICnumber <- round(model_summary$BIC, 1)
+  
   # if `subtitle` is not provided, use this generic
   if (is.null(subtitle)) {
     subtitle <- bquote(
-      "R squared =" ~ .(rsquared) * ", CI[" ~ .(cilower) * ", " ~ .(ciupper) * " ], AIC =" ~ .(AICnumber) * ", BIC =" ~ .(BICnumber)
+      "R squared =" ~ .(rsquared) * ", CI [" ~ .(cilower) * ", " ~ .(ciupper) * " ], AIC =" ~ .(AICnumber) * ", BIC =" ~ .(BICnumber)
     )
   }
   
+  # decide how much to offset things
+  if (offset.style == "wide") {
+    dot.dodge <- .4
+    ci.dodge <- .15
+    mean.dodge <- .15
+  }
+  if (offset.style == "narrow") {
+    dot.dodge <- .1
+    ci.dodge <- .05
+    mean.dodge <- .05
+  }
+  if (offset.style != "narrow" && offset.style != "wide") {
+    dot.dodge <- 0
+    ci.dodge <- 0
+    mean.dodge <- 0
+  }
+  
+ 
   commonstuff <- list(
     xlab(xlab),
     ylab(ylab),
@@ -321,62 +415,67 @@ Plot2WayANOVA <- function(formula,
     theme(panel.grid.major.x = element_blank())
   )
   
+  # -------- start the plot ---------
+  
+  p <- newdata %>%
+    ggplot(aes_string(
+      x = iv1,
+      y = "TheMean",
+      colour = iv2,
+      fill = iv2,
+      group = iv2
+    ))  +
+    commonstuff
+  
+  # -------- display individual dots ---------
+  
+  if (plottype == "line" && show.dots == TRUE) {
+    p <- p +
+      geom_point(
+        data = dataframe,
+        mapping = aes(
+          x = !!sym(iv1),
+          y = !!sym(depvar)
+        ),
+        alpha = .4,
+        position = position_dodge(dot.dodge)
+      )
+    }
+  
   # -------- switch for bar versus line plot ---------
   
   switch(plottype,
          bar =
-           p <- newdata %>%
-           ggplot(aes_string(
-             x = iv1,
-             y = "TheMean",
-             colour = iv2,
-             fill = iv2,
-             group = iv2
-           )) +
+           p <- p +
            geom_bar(
              stat = "identity",
              position = "dodge"
            ) +
            geom_errorbar(aes(ymin = LowerBound, ymax = UpperBound),
                          width = .5,
+                         size = ci.line.size,
                          position = position_dodge(0.9),
                          show.legend = FALSE
-           ) +
-           commonstuff,
+           ),
          line =
-           p <- newdata %>%
-           ggplot(aes_string(
-             x = iv1,
-             y = "TheMean",
-             colour = iv2,
-             fill = iv2,
-             group = iv2
-           )) +
-           geom_point(
-             data = dataframe,
-             mapping = aes(
-               x = !!sym(iv1),
-               y = !!sym(depvar)
-             ),
-             alpha = .4,
-             position = position_dodge(0.1)
-           ) +
+           p <- p +
            geom_errorbar(aes(
              ymin = LowerBound,
              ymax = UpperBound
            ),
            width = .2,
-           position = position_dodge(0.05)
+           size = ci.line.size,
+           position = position_dodge(ci.dodge)
            ) +
-           geom_line(size = interact.line.size) +
+           geom_line(size = interact.line.size,
+                     position = position_dodge(mean.dodge)) +
            geom_point(aes(y = TheMean),
-                      shape = 23,
+                      shape = mean.shape,
                       size = mean.size,
                       color = mean.color,
                       alpha = 1,
-                      position = position_dodge(0.05)
-           ) +
-           commonstuff
+                      position = position_dodge(mean.dodge)
+           )
   )
   
   # -------- Add box or violin if needed ---------
@@ -392,7 +491,7 @@ Plot2WayANOVA <- function(formula,
             group = !!sym(iv1)
           ),
           color = "gray",
-          width = 0.3,
+          width = 0.4,
           alpha = 0.2,
           fill = "white",
           outlier.shape = NA,
@@ -408,7 +507,7 @@ Plot2WayANOVA <- function(formula,
             group = !!sym(iv1)
           ),
           color = "gray",
-          width = 0.5,
+          width = 0.7,
           alpha = 0.2,
           fill = "white",
           show.legend = FALSE
@@ -418,7 +517,7 @@ Plot2WayANOVA <- function(formula,
 
   # -------- Add mean labels if needed ---------
   
-  if(isTRUE(mean.plotting  && plottype == "line")){
+  if(isTRUE(mean.label  && plottype == "line")){
     p <- p +
       ggrepel::geom_label_repel(
         data = newdata,
@@ -440,16 +539,43 @@ Plot2WayANOVA <- function(formula,
         seed = 123
       )  
   }
+  
+  if(isTRUE(mean.label  && plottype == "bar")){
+    p <- p +
+      ggrepel::geom_label_repel(
+        data = newdata,
+        mapping = aes(x = !!sym(iv1), 
+                      y = TheMean, 
+                      label = as.character(round(TheMean, 2))),
+        size = mean.label.size,
+        color = mean.label.color,
+        fontface = "bold",
+        alpha = .8,
+        direction = "both",
+        max.iter = 3e2,
+        box.padding = 0.35,
+        point.padding = 0.5,
+        segment.color = "black",
+        force = 2,
+        position = position_dodge(0.9),
+        inherit.aes = TRUE,
+        show.legend = FALSE,
+        seed = 123
+      )  
+  }
+  
   # -------- Warn user of unbalanced design ----------------
   
   if (is.list(replications(formula, dataframe))) {
-    message("\n--- WARNING! ---\nYou have an unbalanced design. Using Type II sum of squares, 
-to calculate factor effect sizes eta and omega \n
-The R Squared reported is for the overall model but your 
-two factors account for ...\n")
-    message(round(1 - (MyAOVt2$`Sum Sq`[4]/sum(MyAOVt2$`Sum Sq`[1:4])),3))
-    message("\nof the type II sum of squares, as opposed to the
-R Squared reported below for overall model fit!\n")
+    rsquaredx <- round(1 - (MyAOVt2$`Sum Sq`[4]/sum(MyAOVt2$`Sum Sq`[1:4])),3)
+    message(paste0("\n\t\t\t\t--- WARNING! ---\n",
+              "\t\tYou have an unbalanced design. Using Type II sum of 
+              squares, to calculate factor effect sizes eta and omega.
+              The R Squared reported is for the overall model but your 
+              two factors account for ", rsquaredx, " of the type II sum of 
+              squares, as opposed to the ", rsquared, " reported below for 
+              overall model fit!\n"))
+#    message(paste0("blah ", rsquared))
   }
   else {
     message("\nYou have a balanced design. \n")
@@ -462,6 +588,8 @@ R Squared reported below for overall model fit!\n")
   print(model_summary)
   message("\nTable of group means\n")
   print(newdata)
+  message("\nPost hoc tests for all effects that were significant\n")
+  print(posthocresults)
   message("\nTesting Homogeneity of Variance with Brown-Forsythe \n")
   if (BFTest$`Pr(>F)`[[1]] <= .05) {
     message("   *** Possible violation of the assumption ***")
@@ -486,19 +614,13 @@ R Squared reported below for overall model fit!\n")
     ANOVATable = WithETA,
     ModelSummary = model_summary,
     MeansTable = newdata,
+    PosthocTable = posthocresults,
     BFTest = BFTest,
     SWTest = SWTest
   )
   if (PlotSave) {
     ggsave(potentialfname, device = "png")
-    whattoreturn <- list(
-      ANOVATable = WithETA,
-      ModelSummary = model_summary,
-      MeansTable = newdata,
-      BFTest = BFTest,
-      SWTest = SWTest,
-      pFileName = potentialfname
-    )
+    whattoreturn[["plotfile"]] <- potentialfname
   }
   return(invisible(whattoreturn))
 }
