@@ -1,4 +1,4 @@
-## ----setup---------------------------------------------------------------
+## ----setup--------------------------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
@@ -10,11 +10,13 @@ knitr::opts_chunk$set(
 # install.packages("devtools")
 # devtools::install_github("ibecav/CGPfunctions")
 library(CGPfunctions)
+library(tidyr)
+library(dplyr)
 
-## ----ggslope1, fig.height=10, fig.width=7--------------------------------
+## ----ggslope1, fig.height=10, fig.width=7-------------------------------------
 newggslopegraph(newcancer,Year,Survival,Type)
 
-## ----ggslope2, fig.height=10, fig.width=7--------------------------------
+## ----ggslope2, fig.height=10, fig.width=7-------------------------------------
 newggslopegraph(dataframe = newcancer,
                 Times = Year,
                 Measurement = Survival,
@@ -24,7 +26,7 @@ newggslopegraph(dataframe = newcancer,
                 Caption = NULL
                 )
 
-## ----ggslope3, fig.height=5, fig.width=5---------------------------------
+## ----ggslope3, fig.height=5, fig.width=5--------------------------------------
 moredata <- structure(list(Date = structure(c(1L, 1L, 1L, 1L, 1L, 2L, 2L, 2L, 2L, 2L, 3L, 3L, 3L, 3L, 3L), 
                                             .Label = c("11-May-18", "18-May-18", "25-May-18"), 
                                             class = "factor"), 
@@ -37,7 +39,7 @@ moredata <- structure(list(Date = structure(c(1L, 1L, 1L, 1L, 1L, 2L, 2L, 2L, 2L
 #tail(moredata)
 newggslopegraph(moredata,Date,Pct,Party, Title = "Notional data", SubTitle = NULL, Caption = NULL)
 
-## ----ggslope4, fig.height=5, fig.width=5---------------------------------
+## ----ggslope4, fig.height=5, fig.width=5--------------------------------------
 newggslopegraph(moredata, Date, Pct, Party, 
                 Title = "Notional data", 
                 SubTitle = "none", 
@@ -47,7 +49,7 @@ newggslopegraph(moredata, Date, Pct, Party,
                 YTextSize = 4
                 )
 
-## ----ggslope5, fig.height=5, fig.width=5---------------------------------
+## ----ggslope5, fig.height=5, fig.width=5--------------------------------------
 newggslopegraph(moredata, Date, Pct, Party, 
                 Title = "Notional data", 
                 SubTitle = "none", 
@@ -57,7 +59,7 @@ newggslopegraph(moredata, Date, Pct, Party,
                 YTextSize = 4
                 )
 
-## ----ggslope6, fig.height=12, fig.width=6--------------------------------
+## ----ggslope6, fig.height=12, fig.width=6-------------------------------------
 newggslopegraph(newgdp, 
                 Year, 
                 GDP, 
@@ -70,7 +72,7 @@ newggslopegraph(newgdp,
                 LineColor = c(rep("gray",3), "red", rep("gray",3), "red", rep("gray",10))
                 )
 
-## ----ggslope7, fig.height=7, fig.width=6---------------------------------
+## ----ggslope7, fig.height=7, fig.width=6--------------------------------------
 newgdp$rGDP <- signif(newgdp$GDP, 2)
 newggslopegraph(newgdp, 
                 Year, 
@@ -83,4 +85,33 @@ newggslopegraph(newgdp,
                 YTextSize = 4,
                 LineColor = c(rep("gray",6), rep("red",2), "red", rep("gray",10))
                 )
+
+custom_colors <- tidyr::pivot_wider(newgdp, 
+                   id_cols = Country, 
+                   names_from = Year, 
+                   values_from = GDP) %>% 
+  mutate(difference = Year1979 - Year1970) %>%
+  mutate(trend = case_when(
+    difference >= 2 ~ "green",
+    difference <= -1 ~ "red",
+    TRUE ~ "gray"
+    )
+  ) %>%
+  select(Country, trend) %>%
+  tibble::deframe()
+
+custom_colors
+
+newggslopegraph(newgdp, 
+                Year, 
+                rGDP, 
+                Country, 
+                Title = "Gross GDP", 
+                SubTitle = NULL, 
+                Caption = NULL,
+                LineThickness = .5,
+                YTextSize = 4,
+                LineColor = custom_colors
+)
+
 

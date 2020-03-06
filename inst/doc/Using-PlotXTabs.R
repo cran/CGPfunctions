@@ -1,15 +1,15 @@
-## ----setup, echo = FALSE, warning=FALSE, message=FALSE-------------------
+## ----setup, echo = FALSE, warning=FALSE, message=FALSE------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
 library(CGPfunctions)
 
-## ----LoadLibrary---------------------------------------------------------
+## ----LoadLibrary--------------------------------------------------------------
 library(productplots)
 str(happy)
 
-## ----vignette1, fig.width=6.0, fig.height=2.5----------------------------
+## ----vignette1, fig.width=6.0, fig.height=2.5---------------------------------
 # who's happier by gender
 PlotXTabs(happy,happy,sex)
 # same thing using column numbers and a stacked bar

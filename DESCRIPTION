@@ -1,24 +1,31 @@
 Package: CGPfunctions
 Title: Powell Miscellaneous Functions for Teaching and Learning
         Statistics
-Version: 0.5.7
-Authors@R: person("Chuck", "Powell", email = "ibecav@gmail.com", role = c("aut", "cre"),
-             comment = c(ORCID = "0000-0002-3606-2188"))
+Version: 0.5.9
+Authors@R: person("Chuck", 
+                  "Powell", 
+                  email = "ibecav@gmail.com", 
+                  role = c("aut", "cre"),
+                  comment = c(ORCID = "0000-0002-3606-2188")
+                )
 Description: Miscellaneous functions useful for teaching statistics as well as actually practicing the art. They typically are not “new” methods but rather wrappers around either base R or other packages.
-Depends: R (>= 3.5.0)
+Depends: R (>= 3.6.0)
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-Imports: broomExtra, car, DescTools, devtools, dplyr, ggplot2, ggrepel,
-        methods, pwr, rlang, scales, sjstats, tibble
-Suggests: BSDA, lsr, janitor, knitr, productplots, rmarkdown, stringi
+Imports: BayesFactor, broom, car, DescTools, dplyr, forcats, ggplot2,
+        ggrepel, grid, methods, paletteer, partykit, purrr, rlang,
+        scales, sjstats, stats, stringr, tidyr
+Suggests: BSDA, ggthemes, hrbrthemes, janitor, knitr, lsr, magrittr,
+        productplots, pwr, rmarkdown, stringi, tibble, testthat,
+        tidyselect
 VignetteBuilder: knitr
-RoxygenNote: 6.1.1
+RoxygenNote: 7.0.2
 URL: https://github.com/ibecav/CGPfunctions
 BugReports: https://github.com/ibecav/CGPfunctions/issues
 NeedsCompilation: no
-Packaged: 2019-06-14 19:18:58 UTC; cgpowell
+Packaged: 2020-03-06 17:13:30 UTC; cpowell
 Author: Chuck Powell [aut, cre] (<https://orcid.org/0000-0002-3606-2188>)
 Maintainer: Chuck Powell <ibecav@gmail.com>
 Repository: CRAN
-Date/Publication: 2019-06-14 19:45:36 UTC
+Date/Publication: 2020-03-06 18:00:10 UTC

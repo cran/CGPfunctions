@@ -1,5 +1,19 @@
-# CGPfunctions 0.5.4
+# CGPfunctions 0.5.9
 
+* Release 0.5.9 in development March 2020
+  - Added functionality to PlotXTabs2 will be deprecating PlotXtabs next 
+    release
+  - Another vignette example for newggslopegraph
+  - Added chaid_table() including vignette
+  - Added cross2_var_vectors function
+  - Requiring R >= 3.6.0 to support DescTools
+  - Cleaned up dependencies
+  - Corrected overly aggresive error checking in newggslopegraph
+  - Remove deprecated neweta()
+* Release 0.5.8 feature release 20 June 2019
+  - Updated newslopegraph to add aditional formatting options
+  - Added support for selected themes from ggthemes
+  - Updating github web pages
 * Release 0.5.7 feature release 12 June 2019
   - Updated newslopegraph to add aditional formatting options
 * Release 0.5.4 hotfix release 8 April 2019
