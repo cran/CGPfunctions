@@ -5,45 +5,109 @@
 \title{See The Distribution}
 \usage{
 SeeDist(
-  qqq,
+  x,
   numbins = 0,
-  whatvar = "Unspecified",
-  whatplots = c("d", "b", "h")
+  xlab = NULL,
+  var_explain = NULL,
+  data.fill.color = "deepskyblue",
+  mean.line.color = "darkgreen",
+  median.line.color = "yellow",
+  mode.line.color = "orange",
+  mean.line.type = "longdash",
+  median.line.type = "dashed",
+  mode.line.type = "dashed",
+  mean.line.size = 1.5,
+  median.line.size = 1.5,
+  mean.point.shape = 21,
+  median.point.shape = 23,
+  mean.point.size = 4,
+  median.point.size = 4,
+  zcurve.color = "red",
+  zcurve.type = "twodash",
+  zcurve.size = 1,
+  tcurve.color = "black",
+  tcurve.type = "dotted",
+  tcurve.size = 1,
+  mode.line.size = 1,
+  whatplots = c("d", "b", "h", "v"),
+  k = 2,
+  ggtheme = ggplot2::theme_bw()
 )
 }
 \arguments{
-\item{qqq}{the data to be visualized must be numeric.}
+\item{x}{the data to be visualized must be numeric.}
 
 \item{numbins}{the number of bins to use for any plots that bin. If nothing is
 specified the function will calculate a rational number using Freedman-Diaconis
 via the \code{nclass.FD} function}
 
-\item{whatvar}{additional contextual information about the variable as a string
+\item{xlab}{Custom text for the `x` axis label (Default: `NULL`, which
+will cause the `x` axis label to be the `x` variable).}
+
+\item{var_explain}{additional contextual information about the variable as a string
 such as "Miles Per Gallon"}
 
-\item{whatplots}{what type of plots?  The default is whatplots = c("d","b","h")
-for a density, a boxplot, and a histogram}
+\item{data.fill.color}{Character string that specifies fill color for our data
+(Default: `deepskyblue`).}
+
+\item{mean.line.color, median.line.color, mode.line.color}{Character string that 
+specifies line color (Default: `darkgreen`, `yellow`, `orange`).}
+
+\item{mean.line.type, median.line.type, mode.line.type}{Character string that 
+specifies line color (Default: `longdash`, `dashed`, `dashed`).}
+
+\item{mean.line.size, median.line.size, mode.line.size}{Numeric that 
+specifies line size (Default: `1.5`, `1.5`, `1`).  You can set to `0` to make
+any of the lines "disappear".}
+
+\item{mean.point.shape, median.point.shape}{Integer in 0 - 25 
+specifies shape of mean or median point mark on the violin plot
+(Default: `21`, `23`).}
+
+\item{mean.point.size, median.point.size}{Integer
+specifies size of mean or median point mark on the violin plot
+(Default: `4`). You can set to `0` to make any of the points "disappear".}
+
+\item{zcurve.color, tcurve.color}{Character string that 
+specifies line color (Default: `red`, `black`).}
+
+\item{zcurve.type, tcurve.type}{Character string that 
+specifies line color (Default: `twodash`, `dotted`).}
+
+\item{zcurve.size, tcurve.size}{Numeric that 
+specifies line size (Default: `1`).  You can set to `0` to make
+any of the lines "disappear".}
+
+\item{whatplots}{what type of plots?  The default is whatplots = c("d", "b", "h", "v")
+for a density, a boxplot, a histogram, and a violin plot}
+
+\item{k}{Number of digits after decimal point (should be an integer)
+(Default: k = 2) for statistical results.}
+
+\item{ggtheme}{A function, ggplot2 theme name. Default value is ggplot2::theme_bw().
+Any of the ggplot2 themes, or themes from extension packages are allowed (e.g.,
+hrbrthemes::theme_ipsum(), etc.).}
 }
 \value{
-from 1 to 3 plots depending on what the user specifies as well as a
-base R summary printed to the console
+from 1 to 4 plots depending on what the user specifies as well as an
+  extensive summary courtesy `DescTools::Desc` printed to the console
 }
 \description{
 This function takes a vector of numeric data and returns one or more ggplot2
-plots that help you visualize the data
+plots that help you visualize the data.
 }
 \section{Warning}{
 
-If the data has more than 3 modal values only the first three of them are plotted.
-The rest are ignored and the user is warned on the console.
+  If the data has more than 3 modal values only the first three of them are plotted.
+  The rest are ignored and the user is warned on the console.
 
 Missing values are removed with a warning to the user
 }
 
 \examples{
-SeeDist(rnorm(100, mean = 100, sd = 20), numbins = 15, whatvar = "A Random Sample")
-SeeDist(mtcars$hp, whatvar = "Horsepower", whatplots = c("d", "b"))
-SeeDist(iris$Sepal.Length, whatvar = "Sepal Length", whatplots = "d")
+SeeDist(rnorm(100, mean = 100, sd = 20), numbins = 15, var_explain = "A Random Sample")
+SeeDist(mtcars$hp, var_explain = "Horsepower", whatplots = c("d", "b"))
+SeeDist(iris$Sepal.Length, var_explain = "Sepal Length", whatplots = "d")
 }
 \seealso{
 \code{\link[grDevices]{nclass}}

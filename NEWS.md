@@ -1,6 +1,14 @@
-# CGPfunctions 0.5.9
+# CGPfunctions 0.6.0
 
-* Release 0.5.9 in development March 2020
+* Release 0.6.0 in development March 2020
+  - Fixed tibble 3.0.0 issue
+  - Fixed dependency issues with ggplot2, scales, sjstats and added ggmosaic
+  - Adding mosaic plots to PlotXTabs2 still debugging and waiting on the next version
+    of ggmosaic for some bu fixes
+  - Significant upgrades to seedist including lots of customization options and the
+    addition of violin plots.
+    
+* Release 0.5.9 deployed to CRAN March 2020
   - Added functionality to PlotXTabs2 will be deprecating PlotXtabs next 
     release
   - Another vignette example for newggslopegraph

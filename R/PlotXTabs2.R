@@ -1,6 +1,6 @@
 #' Bivariate bar (column) charts with statistical tests
 #' 
-#' Bivariate bar charts for categorical and ordinal data with 
+#' Bivariate bar charts for nominal and ordinal data with 
 #'   (optionally) statistical details included in the plot as a subtitle.
 #'   
 #' @param data A dataframe or tibble containing the `x` and `y` variables.
@@ -23,7 +23,7 @@
 #'   will have precedence.
 #' @param caption The text for the plot caption. Please note the interaction
 #'   with `bf.details`.
-#' @param plottype one of three options "side", "stack" or "percent"
+#' @param plottype one of four options "side", "stack", "mosaic" or "percent"
 #' @param sample.size.label Logical that decides whether sample size information
 #'   should be displayed for each level of the grouping variable `y`
 #'   (Default: `TRUE`).
@@ -73,9 +73,16 @@
 #' @param bf.display Character that determines how the Bayes factor value is
 #'   is displayed.  The default is simply the number rounded to `k`. Other 
 #'   options include "sensible", "log" and "support".
+#' @param mosaic.offset Numeric that decides size of spacing between mosaic 
+#'   blocks (Default: `.003` which is very narrow).  "reasonable" values
+#'   probably lie between .05 and .001
+#' @param mosaic.alpha Numeric that controls the "alpha" level of the mosaic 
+#'   plot blocks (Default: `1` which is essentially no "fading"). Values must
+#'   be in the range 0 to 1 see: `ggplot2::aes_colour_fill_alpha`
 #'   
 #'
 #' @import ggplot2
+#' @import ggmosaic
 #'
 #' @importFrom dplyr select group_by summarize n arrange if_else desc
 #' @importFrom dplyr mutate mutate_at mutate_if filter_all
@@ -87,6 +94,7 @@
 #' @importFrom BayesFactor extractBF
 #' @importFrom BayesFactor contingencyTableBF
 #' @importFrom sjstats crosstable_statistics
+#' @importFrom scales label_percent
 #'
 #' @author Chuck Powell, Indrajeet Patil
 #'
@@ -122,6 +130,21 @@
 #'   x = Hair,
 #'   counts = Freq
 #' )
+#' 
+#'\dontrun{
+#' # mosaic plot requires ggmosaic 0.2.2 or higher from github
+#' PlotXTabs2(
+#'   data = mtcars,
+#'   x = vs,
+#'   y =  am, 
+#'   plottype = "mosaic", 
+#'   data.label = "both", 
+#'   mosaic.alpha = .9, 
+#'   bf.display = "support", 
+#'   title = "Motorcars Mosaic Plot VS by AM"
+#' )
+#'}
+#'
 #' @export
 
 PlotXTabs2 <- function(data,
@@ -148,6 +171,8 @@ PlotXTabs2 <- function(data,
                     conf.level = 0.95,
                     k = 2,
                     perc.k = 0,
+                    mosaic.offset = .003,
+                    mosaic.alpha = 1,
                     bf.details = FALSE,
                     bf.display = "regular",
                     sampling.plan = "jointMulti",
@@ -160,30 +185,9 @@ PlotXTabs2 <- function(data,
                     direction = 1,
                     ggplot.component = NULL) {
   
+
   # set default theme 
   ggplot2::theme_set(ggtheme)
-  
-  ### -----  internal function to format p values =====================
-  
-  pvalr <- function(pvals, sig.limit = .001, digits = 3, html = FALSE) {
-
-    roundr <- function(x, digits = 1) {
-      res <- sprintf(paste0('%.', digits, 'f'), x)
-      zzz <- paste0('0.', paste(rep('0', digits), collapse = ''))
-      res[res == paste0('-', zzz)] <- zzz
-      res
-    }
-
-    sapply(pvals, function(x, sig.limit) {
-      if (x < sig.limit)
-        if (html)
-          return(sprintf('&lt; %s', format(sig.limit))) else
-            return(sprintf('< %s', format(sig.limit)))
-      if (x > .1)
-        return(roundr(x, digits = 2)) else
-          return(roundr(x, digits = digits))
-    }, sig.limit = sig.limit)
-  }
   
   ### -----  input checking -----------
 
@@ -199,26 +203,23 @@ PlotXTabs2 <- function(data,
   
   ### -----  x label and legend title  ==============
   # if legend title is not provided, use the variable name for 'y'
-  # argument
   if (is.null(legend.title)) {
     legend.title <- rlang::as_name(rlang::enquo(y))
   }
 
-  # if alternate variable label is not specified, use the variable name for
-  # 'x' argument
+  # if not specified, use the variable name for 'x'
   if (is.null(xlab)) {
     xlab <- rlang::as_name(rlang::enquo(x))
   }
 
   ### -----  create temp local dataframe ====================
-
   # creating a dataframe based on whether counts
   if (base::missing(counts)) {
     data <-
       dplyr::select(
         .data = data,
-        y = !!rlang::enquo(y),
-        x = !!rlang::enquo(x)
+        y = {{ y }},
+        x = {{ x }}
       )
   } else {
     data <-
@@ -228,7 +229,8 @@ PlotXTabs2 <- function(data,
         x = !!rlang::quo_name(rlang::enquo(x)),
         counts = !!rlang::quo_name(rlang::enquo(counts))
       )
-    data <- data %>%
+    data <- 
+      data %>%
       tidyr::uncount(
         data = .,
         weights = counts,
@@ -241,7 +243,7 @@ PlotXTabs2 <- function(data,
 
   ### -----  calculate counts and percents -------
 
-  # y and x need to be a factor for this analysis
+  # y and x need to be a factor or ordered factor
   # also drop the unused levels of the factors and NAs
   data <- data %>%
     dplyr::mutate_if(.tbl = ., not_a_factor, as.factor) %>%
@@ -311,19 +313,13 @@ PlotXTabs2 <- function(data,
 
   ### -----  preparing names for legend  ======================
 
-  # # reorder the category factor levels to order the legend
-  # df$y <- factor(
-  #   x = df$y,
-  #   levels = unique(df$y)
-  # )
-
   # getting labels for all levels of the 'y' variable factor
   if (is.null(labels.legend)) {
-    legend.labels <- as.character(df$y)
+    legend.labels <- levels(df$y)
   } else if (!missing(labels.legend)) {
     legend.labels <- labels.legend
   }
-
+  
   ### -----  start main plot ============================
   
   # plot
@@ -360,18 +356,85 @@ PlotXTabs2 <- function(data,
       ggplot2::geom_bar(
         stat = "identity",
         color = bar.outline.color,
-        na.rm = TRUE
+        na.rm = TRUE, 
+        position = position_stack(reverse = TRUE)
       ) +
       ggplot2::geom_label(
         mapping = ggplot2::aes(label = data.label, 
                                group = y),
         show.legend = FALSE,
-        position = position_stack(vjust = 0.5),
+        position = position_stack(vjust = 0.5,
+                                  reverse = TRUE),
         size = label.text.size,
         fill = label.fill.color,
         alpha = label.fill.alpha,
         na.rm = TRUE
       )
+  }  else if (plottype == "mosaic")  {
+
+    p <- 
+      ggplot2::ggplot(data = df) +
+      ggmosaic::geom_mosaic(aes(weight = counts, 
+                                x = ggmosaic::product(x), 
+                                fill = y),
+                            offset = mosaic.offset,
+                            alpha = mosaic.alpha) +
+      scale_y_continuous(labels = scales::label_percent(accuracy = 1.0),
+                         breaks = seq(from = 0, 
+                                      to = 1, 
+                                      by = 0.10),
+                         minor_breaks = seq(from = 0.05, 
+                                            to = 0.95, 
+                                            by = 0.10))
+    
+    ### ---- Extract mosaic info and calculate cell pcts      
+    mosaicgeominfo <- 
+      ggplot2::ggplot_build(p)$data[[1]] %>% 
+      group_by_at(vars(ends_with("__x"))) %>% 
+      mutate(NN = sum(.wt)) %>% 
+      mutate(pct = (.wt/NN))
+    
+    if (data.label == "percentage") {
+      # only percentage
+      mosaicgeominfo <- mosaicgeominfo %>%
+        dplyr::mutate(
+          .data = .,
+          data.label = paste0(round(x = pct*100, 
+                                    digits = perc.k), 
+                              "%")
+        )
+    } else if (data.label == "counts") {
+      # only raw counts
+      mosaicgeominfo <- mosaicgeominfo %>%
+        dplyr::mutate(
+          .data = .,
+          data.label = paste0("", .wt)
+        )
+    } else if (data.label == "both") {
+      # both raw counts and percentages
+      mosaicgeominfo <- mosaicgeominfo %>%
+        dplyr::mutate(
+          .data = .,
+          data.label = paste0(
+            "",
+            .wt,
+            "\n(",
+            round(x = pct*100, digits = perc.k),
+            "%)"
+          )
+        )
+    }
+    
+    p <- p + geom_label(data = mosaicgeominfo, 
+                        aes(x = (xmin + xmax)/2, 
+                            y = (ymin + ymax)/2, 
+                            label = data.label
+                            ),
+                        size = label.text.size,
+                        fill = label.fill.color,
+                        alpha = label.fill.alpha
+                        )
+    
   } else {
     p <- ggplot2::ggplot(
       data = df,
@@ -381,7 +444,7 @@ PlotXTabs2 <- function(data,
     ) +
       ggplot2::geom_bar(
         stat = "identity",
-        position = "fill",
+        position = ggplot2::position_fill(reverse = TRUE),
         color = bar.outline.color,
         na.rm = TRUE
       ) +
@@ -398,7 +461,8 @@ PlotXTabs2 <- function(data,
         mapping = ggplot2::aes(label = data.label, 
                                group = y),
         show.legend = FALSE,
-        position = ggplot2::position_fill(vjust = 0.5),
+        position = ggplot2::position_fill(reverse = TRUE, 
+                                          vjust = 0.5),
         size = label.text.size,
         fill = label.fill.color,
         alpha = label.fill.alpha,
@@ -411,7 +475,8 @@ PlotXTabs2 <- function(data,
       panel.grid.major.x = ggplot2::element_blank(),
       legend.position = legend.position
     ) +
-    ggplot2::guides(fill = ggplot2::guide_legend(title = legend.title)
+    ggplot2::guides(fill = ggplot2::guide_legend(title = legend.title, 
+                                                 reverse = TRUE)
     ) +
     paletteer::scale_fill_paletteer_d(
       palette = paste0(package, "::", palette),
@@ -431,11 +496,7 @@ PlotXTabs2 <- function(data,
     ppvalue <- pvalr(chi.results$p.value)
     effecttype <- chi.results$method
     effectvalue <- round(chi.results$estimate, k)
-    # bubba <- sjstats::cramer(formula = y ~ x,
-    #                          data = data,
-    #                          ci.lvl = conf.level)
-    # return(chi.results)
-    
+
     bf10_results <- 
       BayesFactor::extractBF(
         BayesFactor::contingencyTableBF(
@@ -493,7 +554,7 @@ PlotXTabs2 <- function(data,
   
   ### -----  adding sample size info on x axis -------
   
-  if (plottype == "percent") {
+  if (plottype == "percent" || plottype == "mosaic") {
     y_adjustment <- -0.05
   } else {
     y_adjustment <- -0.05 * max(df$counts)
@@ -502,22 +563,47 @@ PlotXTabs2 <- function(data,
     }
   }
   
-  if (isTRUE(sample.size.label)) {
-    p <-
-      p +
-      ggplot2::geom_text(
-        data = df_n_label,
-        mapping = ggplot2::aes(
-          x = x,
-          y = y_adjustment,
-          label = N,
-          fill = NULL
-        ),
-        size = 4,
-        na.rm = TRUE
-      )
-  }
+  if (plottype != "mosaic") {
+    if (isTRUE(sample.size.label)) {
+      p <-
+        p +
+        ggplot2::geom_text(
+          data = df_n_label,
+          mapping = ggplot2::aes(
+            x = x,
+            y = y_adjustment,
+            label = N,
+            fill = NULL
+          ),
+          size = 4,
+          na.rm = TRUE
+        )
+    }
+  } else {
+    if (isTRUE(sample.size.label)) {
 
+      # Compute mosaic x axis label tick positions      
+      xNlabelpos <- 
+        mosaicgeominfo %>% 
+        distinct(xNlabelpos = ((xmax - xmin)/2) + xmin) %>%
+        pull(xNlabelpos)
+
+      p <-
+        p +
+        ggplot2::geom_text(
+          data = df_n_label,
+          mapping = ggplot2::aes(
+            x = xNlabelpos,
+            y = y_adjustment,
+            label = N,
+            fill = NULL
+          ),
+          size = 4,
+          na.rm = TRUE
+        )
+    }
+  }
+  
   ### -----  if we need to modify `x`-axis orientation ----
   if (!base::missing(x.axis.orientation)) {
     if (x.axis.orientation == "slant") {
