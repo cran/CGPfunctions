@@ -8,6 +8,7 @@ Plot2WayANOVA(formula,
                dataframe = NULL,
                confidence=.95,
                plottype = "line",
+               errorbar.display = "CI",
                xlab = NULL,
                ylab = NULL,
                title = NULL,
@@ -25,7 +26,11 @@ Plot2WayANOVA(formula,
                overlay.type = NULL,
                posthoc.method = "scheffe",
                show.dots = FALSE,
-               PlotSave = FALSE)
+               PlotSave = FALSE,
+               ggtheme = ggplot2::theme_bw(),
+               package = "RColorBrewer",
+               palette = "Dark2",
+               ggplot.component = NULL)
 }
 \arguments{
 \item{formula}{a formula with a numeric dependent (outcome) variable,
@@ -38,6 +43,10 @@ possible.}
 \item{confidence}{what confidence level for confidence intervals}
 
 \item{plottype}{bar or line (quoted)}
+
+\item{errorbar.display}{default "CI" (confidence interval), which type of
+errorbar should be displayed around the mean point? Other options
+include "SEM" (standard error of the mean) and "SD" (standard dev).}
 
 \item{xlab, ylab}{Labels for `x` and `y` axis variables. If `NULL` (default),
 variable names for `x` and `y` will be used.}
@@ -88,13 +97,28 @@ are displayed (Default: `FALSE`).}
 
 \item{PlotSave}{a logical indicating whether the user wants to save the plot
 as a png file}
+
+\item{ggtheme}{A function, ggplot2 theme name. Default value is ggplot2::theme_bw().
+Any of the ggplot2 themes, or themes from extension packages are allowed (e.g.,
+hrbrthemes::theme_ipsum(), etc.).}
+
+\item{package}{Name of package from which the palette is desired as string
+or symbol.}
+
+\item{palette}{Name of palette as string or symbol.}
+
+\item{ggplot.component}{A ggplot component to be added to the plot prepared.
+The default is NULL. The argument should be entered as a function.
+for example to change the size and color of the x axis text you use:
+`ggplot.component = theme(axis.text.x = element_text(size=13, color="darkred"))`
+depending on what theme is in use the ggplot component might not work as expected.}
 }
 \value{
 A list with 5 elements which is returned invisibly. These items
   are always sent to the console for display but for user convenience
   the function also returns a named list with the following items
   in case the user desires to save them or further process them -
-  \code{$ANOVATable},\code{$ModelSummary}, \code{$MeansTable},
+  \code{$ANOVATable}, \code{$ModelSummary}, \code{$MeansTable},
   \code{$PosthocTable}, \code{$BFTest}, and \code{$SWTest}.
   The plot is always sent to the default plot device
 }
@@ -118,7 +142,7 @@ Details about how the function works in order of steps taken.
    means, confidence intervals, and group sizes.
 \item Use \code{\link[stats]{aov}} function to execute an Analysis of
   Variance (ANOVA)
-\item Use \code{\link[sjstats]{anova_stats}} to calculate eta squared
+\item Use \code{sjstats::anova_stats} to calculate eta squared
   and omega squared values per factor. If the design is unbalanced warn
   the user and use Type II sums of squares
 \item Produce a standard ANOVA table with additional columns
@@ -147,36 +171,20 @@ Plot2WayANOVA(mpg ~ am * cyl,
   overlay.type = "box",
   mean.label = TRUE
 )
-Plot2WayANOVA(mpg ~ am * vs, mtcars, confidence = .99)
 
-# Create a new dataset
-library(dplyr)
 library(ggplot2)
-library(stringi)
-newmpg <- mpg \%>\%
-  filter(cyl != 5) \%>\%
-  mutate(am = stringi::stri_extract(trans, regex = "auto|manual"))
-Plot2WayANOVA(
-  formula = hwy ~ am * cyl,
-  dataframe = newmpg,
-  ylab = "Highway mileage",
-  xlab = "Transmission type",
-  plottype = "line",
-  offset.style = "wide",
-  overlay.type = "box",
-  mean.label = TRUE,
-  mean.shape = 20,
-  mean.size = 5,
-  mean.label.size = 5,
-  show.dots = TRUE
-)
+Plot2WayANOVA(mpg ~ am * vs, 
+  mtcars, 
+  confidence = .99,
+  ggplot.component = theme(axis.text.x = element_text(size=13, color="darkred")))
+  
 }
 \references{
 : ANOVA: Delacre, Leys, Mora, & Lakens, *PsyArXiv*, 2018
 }
 \seealso{
 \code{\link[stats]{aov}}, \code{\link[car]{leveneTest}},
-\code{\link[sjstats]{anova_stats}}, \code{\link[stats]{replications}},
+\code{sjstats::anova_stats}, \code{\link[stats]{replications}},
 \code{\link[stats]{shapiro.test}}
 }
 \author{

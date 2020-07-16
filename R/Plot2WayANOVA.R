@@ -18,7 +18,7 @@
 #'    means, confidence intervals, and group sizes.
 #' \item Use \code{\link[stats]{aov}} function to execute an Analysis of
 #'   Variance (ANOVA)
-#' \item Use \code{\link[sjstats]{anova_stats}} to calculate eta squared
+#' \item Use \code{sjstats::anova_stats} to calculate eta squared
 #'   and omega squared values per factor. If the design is unbalanced warn
 #'   the user and use Type II sums of squares
 #' \item Produce a standard ANOVA table with additional columns
@@ -42,6 +42,7 @@
 #'                dataframe = NULL,
 #'                confidence=.95,
 #'                plottype = "line",
+#'                errorbar.display = "CI",
 #'                xlab = NULL,
 #'                ylab = NULL,
 #'                title = NULL,
@@ -59,7 +60,11 @@
 #'                overlay.type = NULL,
 #'                posthoc.method = "scheffe",
 #'                show.dots = FALSE,
-#'                PlotSave = FALSE)
+#'                PlotSave = FALSE,
+#'                ggtheme = ggplot2::theme_bw(),
+#'                package = "RColorBrewer",
+#'                palette = "Dark2",
+#'                ggplot.component = NULL)
 #' @param formula a formula with a numeric dependent (outcome) variable,
 #'   and two independent (predictor) variables e.g. \code{mpg ~ am * vs}.
 #'   The independent variables are coerced to factors (with warning) if
@@ -67,6 +72,9 @@
 #' @param dataframe a dataframe or an object that can be coerced to a dataframe
 #' @param confidence what confidence level for confidence intervals
 #' @param plottype bar or line (quoted)
+#' @param errorbar.display default "CI" (confidence interval), which type of
+#'   errorbar should be displayed around the mean point? Other options
+#'   include "SEM" (standard error of the mean) and "SD" (standard dev).
 #' @param PlotSave a logical indicating whether the user wants to save the plot
 #'  as a png file
 #' @param xlab,ylab Labels for `x` and `y` axis variables. If `NULL` (default),
@@ -101,11 +109,22 @@
 #'   (Default: `"scheffe"`).
 #' @param show.dots Logical that decides whether the individual data points
 #'   are displayed (Default: `FALSE`).
+#' @param package Name of package from which the palette is desired as string
+#'   or symbol.
+#' @param palette Name of palette as string or symbol.
+#' @param ggtheme A function, ggplot2 theme name. Default value is ggplot2::theme_bw().
+#'   Any of the ggplot2 themes, or themes from extension packages are allowed (e.g.,
+#'   hrbrthemes::theme_ipsum(), etc.).
+#' @param ggplot.component A ggplot component to be added to the plot prepared.
+#'   The default is NULL. The argument should be entered as a function.
+#'   for example to change the size and color of the x axis text you use:
+#'   `ggplot.component = theme(axis.text.x = element_text(size=13, color="darkred"))`
+#'   depending on what theme is in use the ggplot component might not work as expected.
 #' @return A list with 5 elements which is returned invisibly. These items
 #'   are always sent to the console for display but for user convenience
 #'   the function also returns a named list with the following items
 #'   in case the user desires to save them or further process them -
-#'   \code{$ANOVATable},\code{$ModelSummary}, \code{$MeansTable},
+#'   \code{$ANOVATable}, \code{$ModelSummary}, \code{$MeansTable},
 #'   \code{$PosthocTable}, \code{$BFTest}, and \code{$SWTest}.
 #'   The plot is always sent to the default plot device
 #'
@@ -113,7 +132,7 @@
 #'
 #' @author Chuck Powell
 #' @seealso \code{\link[stats]{aov}}, \code{\link[car]{leveneTest}},
-#' \code{\link[sjstats]{anova_stats}}, \code{\link[stats]{replications}},
+#' \code{sjstats::anova_stats}, \code{\link[stats]{replications}},
 #' \code{\link[stats]{shapiro.test}}
 #' @examples
 #'
@@ -124,35 +143,18 @@
 #'   overlay.type = "box",
 #'   mean.label = TRUE
 #' )
-#' Plot2WayANOVA(mpg ~ am * vs, mtcars, confidence = .99)
-#'
-#' # Create a new dataset
-#' library(dplyr)
+#' 
 #' library(ggplot2)
-#' library(stringi)
-#' newmpg <- mpg %>%
-#'   filter(cyl != 5) %>%
-#'   mutate(am = stringi::stri_extract(trans, regex = "auto|manual"))
-#' Plot2WayANOVA(
-#'   formula = hwy ~ am * cyl,
-#'   dataframe = newmpg,
-#'   ylab = "Highway mileage",
-#'   xlab = "Transmission type",
-#'   plottype = "line",
-#'   offset.style = "wide",
-#'   overlay.type = "box",
-#'   mean.label = TRUE,
-#'   mean.shape = 20,
-#'   mean.size = 5,
-#'   mean.label.size = 5,
-#'   show.dots = TRUE
-#' )
-#' @importFrom dplyr group_by summarise %>% n select filter
+#' Plot2WayANOVA(mpg ~ am * vs, 
+#'   mtcars, 
+#'   confidence = .99,
+#'   ggplot.component = theme(axis.text.x = element_text(size=13, color="darkred")))
+#'   
 #' @import ggplot2
 #' @import rlang
 #' @importFrom methods is
 #' @importFrom stats anova aov lm pf qt replications sd symnum residuals shapiro.test
-#' @importFrom dplyr as_tibble
+#' @importFrom dplyr as_tibble case_when group_by summarise %>% n select filter
 #' @importFrom car leveneTest Anova
 #' @importFrom sjstats anova_stats
 #' @importFrom broom glance
@@ -163,6 +165,7 @@ Plot2WayANOVA <- function(formula,
                           dataframe = NULL,
                           confidence = .95,
                           plottype = "line",
+                          errorbar.display = "CI",
                           xlab = NULL,
                           ylab = NULL,
                           title = NULL,
@@ -180,19 +183,16 @@ Plot2WayANOVA <- function(formula,
                           overlay.type = NULL,
                           posthoc.method = "scheffe",
                           show.dots = FALSE,
-                          PlotSave = FALSE) {
+                          PlotSave = FALSE,
+                          ggtheme = ggplot2::theme_bw(),
+                          package = "RColorBrewer",
+                          palette = "Dark2",
+                          ggplot.component = NULL) {
 
   # -------- error checking ----------------
-  if (!requireNamespace("ggplot2")) {
-    stop("Can't continue can't load ggplot2")
-  }
-  theme_set(theme_bw())
-  if (!requireNamespace("dplyr")) {
-    stop("Can't continue can't load dplyr")
-  }
-  if (!requireNamespace("rlang")) {
-    stop("Can't continue can't load rlang")
-  }
+  # set default theme 
+  ggplot2::theme_set(ggtheme)
+  
   if (length(match.call()) - 1 <= 1) {
     stop("Not enough arguments passed...
          requires at least a formula with a DV and 2 IV plus a dataframe")
@@ -316,11 +316,27 @@ Plot2WayANOVA <- function(formula,
       TheSD = sd(!!sym(depvar), na.rm = TRUE),
       TheSEM = sd(!!sym(depvar), na.rm = TRUE) / sqrt(n()),
       CIMuliplier = qt(confidence / 2 + .5, n() - 1),
-      LowerBound = TheMean - TheSEM * CIMuliplier,
-      UpperBound = TheMean + TheSEM * CIMuliplier,
+      LowerBoundCI = TheMean - TheSEM * CIMuliplier,
+      UpperBoundCI = TheMean + TheSEM * CIMuliplier,
+      LowerBoundSEM = TheMean - TheSEM,
+      UpperBoundSEM = TheMean + TheSEM,
+      LowerBoundSD = TheMean - TheSD,
+      UpperBoundSD = TheMean + TheSD,
       N = n()
+    ) %>%
+    mutate(
+      LowerBound = case_when(
+        errorbar.display == "SD" ~ LowerBoundSD,
+        errorbar.display == "SEM" ~ LowerBoundSEM,
+        errorbar.display == "CI" ~ LowerBoundCI,
+        TRUE ~ LowerBoundCI),
+      UpperBound = case_when(
+        errorbar.display == "SD" ~ UpperBoundSD,
+        errorbar.display == "SEM" ~ UpperBoundSEM,
+        errorbar.display == "CI" ~ UpperBoundCI,
+        TRUE ~ UpperBoundCI)
     )
-
+  
   # -------- Run tests and procedures ----------------
 
   # run analysis of variance
@@ -359,32 +375,45 @@ Plot2WayANOVA <- function(formula,
   cipercent <- round(confidence * 100, 2)
   # if `title` is not provided, use this generic
   if (is.null(title)) {
-    title <- bquote(
-      "Group means with" ~ .(cipercent) * "% confidence intervals"
-    )
+    if (errorbar.display == "CI") {
+      title <- bquote(
+        "Group means with" ~ .(cipercent) * "% confidence intervals")
+    } else if (errorbar.display == "SEM") {
+      title <- "Group means with standard error of the mean"
+    } else if (errorbar.display == "SD") {
+      title <- "Group means with standard deviation"
+    }
   }
-
+  
   # compute CI's for R squared using Olkin and Finn's approximation
-  denominator <- (nrow(dataframe)^2 - 1) * (3 + nrow(dataframe))
-  numerator <- (4 * model_summary$r.squared) * ((1 - model_summary$r.squared)^2) * (nrow(dataframe) - 2 - 1)^2
-  ser2 <- sqrt(numerator / denominator)
-  tvalue <- qt((1 - confidence) / 2, nrow(dataframe) - 3)
-  limit1 <- model_summary$r.squared - tvalue * ser2
-  limit2 <- model_summary$r.squared + tvalue * ser2
-  ULr2 <- max(limit1, limit2)
-  LLr2 <- min(limit1, limit2)
+  # denominator <- (nrow(dataframe)^2 - 1) * (3 + nrow(dataframe))
+  # numerator <- (4 * model_summary$r.squared) * ((1 - model_summary$r.squared)^2) * (nrow(dataframe) - 2 - 1)^2
+  # ser2 <- sqrt(numerator / denominator)
+  # tvalue <- qt((1 - confidence) / 2, nrow(dataframe) - 3)
+  # limit1 <- model_summary$r.squared - tvalue * ser2
+  # limit2 <- model_summary$r.squared + tvalue * ser2
+  # ULr2 <- max(limit1, limit2)
+  # LLr2 <- min(limit1, limit2)
 
   # make pretty labels
-  rsquared <- round(model_summary$r.squared, 3)
-  cilower <- round(LLr2, 3)
-  ciupper <- round(ULr2, 3)
+  # rsquared <- round(model_summary$r.squared, 3)
+  # cilower <- round(LLr2, 3)
+  # ciupper <- round(ULr2, 3)
   AICnumber <- round(model_summary$AIC, 1)
   BICnumber <- round(model_summary$BIC, 1)
+  eta2iv1 <- WithETA[1, 7]
+  eta2iv2 <- WithETA[2, 7]
+  eta2interaction <- WithETA[3, 7]
+  
 
   # if `subtitle` is not provided, use this generic
   if (is.null(subtitle)) {
     subtitle <- bquote(
-      "R squared =" ~ .(rsquared) * ", CI [" ~ .(cilower) * ", " ~ .(ciupper) * " ], AIC =" ~ .(AICnumber) * ", BIC =" ~ .(BICnumber)
+       eta^2 * " (" * .(iv1) *  ") =" ~ .(eta2iv1) * 
+       ", " * eta^2 * " (" * .(iv2) *  ") =" ~ .(eta2iv2) * 
+       ", " * eta^2 * " (interaction) =" ~ .(eta2interaction) * 
+         ", AIC =" ~ .(AICnumber) * ", BIC =" ~ .(BICnumber)
+#      "AIC =" ~ .(AICnumber) * ", BIC =" ~ .(BICnumber)
     )
   }
 
@@ -434,10 +463,12 @@ Plot2WayANOVA <- function(formula,
         data = dataframe,
         mapping = aes(
           x = !!sym(iv1),
-          y = !!sym(depvar)
+          y = !!sym(depvar),
+          shape = !!sym(iv2)
         ),
         alpha = .4,
-        position = position_dodge(dot.dodge)
+        position = position_dodge(dot.dodge),
+        show.legend = TRUE
       )
   }
 
@@ -467,6 +498,7 @@ Plot2WayANOVA <- function(formula,
         position = position_dodge(ci.dodge)
         ) +
         geom_line(
+          aes_string(linetype = iv2),
           size = interact.line.size,
           position = position_dodge(mean.dodge)
         ) +
@@ -576,13 +608,10 @@ Plot2WayANOVA <- function(formula,
     message(paste0(
       "\n\t\t\t\t--- WARNING! ---\n",
       "\t\tYou have an unbalanced design. Using Type II sum of 
-              squares, to calculate factor effect sizes eta and omega.
-              The R Squared reported is for the overall model but your 
-              two factors account for ", rsquaredx, " of the type II sum of 
-              squares, as opposed to the ", rsquared, " reported below for 
-              overall model fit!\n"
+            squares, to calculate factor effect sizes eta and omega.
+            Your two factors account for ", rsquaredx, " of the type II sum of 
+            squares.\n"
     ))
-    #    message(paste0("blah ", rsquared))
   }
   else {
     message("\nYou have a balanced design. \n")
@@ -611,8 +640,11 @@ Plot2WayANOVA <- function(formula,
     print(SWTest)
   }
   
-  # -------- Print the plot itself ----------------
-
+  ### -----  adding optional ggplot.component ----------
+  p <- p + ggplot.component
+  
+  #### -------- Print the plot itself ----------------
+  
   message("\nInteraction graph plotted...")
   print(p)
 

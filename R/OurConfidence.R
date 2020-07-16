@@ -14,7 +14,7 @@
 #' @return A ggplot2 object
 #' @export
 #' @importFrom stats qnorm rnorm
-#' @seealso \code{\link[stats]{qnorm}}, \code{\link[stats]{rnorm}}, \code{\link[BSDA]{CIsim}}
+#' @seealso \code{stats::qnorm}, \code{stats::rnorm}, \code{BSDA::CIsim}
 #'
 #' @author Chuck Powell
 #'
@@ -23,10 +23,6 @@
 #' OurConf(samples = 2, n = 5)
 #' OurConf(samples = 25, n = 25, mu = 100, sigma = 20, conf.level = 0.99)
 OurConf <- function(samples = 100, n = 30, mu = 0, sigma = 1, conf.level = 0.95) {
-  # to appease R CMD Check?
-  correct <- NULL
-  samplenumb <- NULL
-  # real stuff
   alpha <- 1 - conf.level
   CL <- conf.level * 100
   n <- round(n)
