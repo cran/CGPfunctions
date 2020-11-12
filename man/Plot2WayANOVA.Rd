@@ -46,7 +46,8 @@ possible.}
 
 \item{errorbar.display}{default "CI" (confidence interval), which type of
 errorbar should be displayed around the mean point? Other options
-include "SEM" (standard error of the mean) and "SD" (standard dev).}
+include "SEM" (standard error of the mean) and "SD" (standard dev).
+"none" removes it entirely much like \code{\link[stats]{interaction.plot}}}
 
 \item{xlab, ylab}{Labels for `x` and `y` axis variables. If `NULL` (default),
 variable names for `x` and `y` will be used.}
@@ -148,8 +149,8 @@ Details about how the function works in order of steps taken.
 \item Produce a standard ANOVA table with additional columns
 \item Use the \code{\link[DescTools]{PostHocTest}} for producing a table
   of post hoc comparisons for all effects that were significant
-\item Use the \code{\link[car]{leveneTest}} for testing Homogeneity
-  of Variance assumption with Brown-Forsythe
+\item Testing Homogeneity
+  of Variance assumption with Brown-Forsythe test
 \item Use the \code{\link[DescTools]{PostHocTest}} for conducting
   post hoc tests for effects that were significant
 \item Use the \code{\link[stats]{shapiro.test}} for testing normality
@@ -183,9 +184,9 @@ Plot2WayANOVA(mpg ~ am * vs,
 : ANOVA: Delacre, Leys, Mora, & Lakens, *PsyArXiv*, 2018
 }
 \seealso{
-\code{\link[stats]{aov}}, \code{\link[car]{leveneTest}},
+\code{\link[stats]{aov}}, \code{\link{BrownForsytheTest}},
 \code{sjstats::anova_stats}, \code{\link[stats]{replications}},
-\code{\link[stats]{shapiro.test}}
+\code{\link[stats]{shapiro.test}}, \code{\link[stats]{interaction.plot}}
 }
 \author{
 Chuck Powell

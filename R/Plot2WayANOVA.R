@@ -24,8 +24,8 @@
 #' \item Produce a standard ANOVA table with additional columns
 #' \item Use the \code{\link[DescTools]{PostHocTest}} for producing a table
 #'   of post hoc comparisons for all effects that were significant
-#' \item Use the \code{\link[car]{leveneTest}} for testing Homogeneity
-#'   of Variance assumption with Brown-Forsythe
+#' \item Testing Homogeneity
+#'   of Variance assumption with Brown-Forsythe test
 #' \item Use the \code{\link[DescTools]{PostHocTest}} for conducting
 #'   post hoc tests for effects that were significant
 #' \item Use the \code{\link[stats]{shapiro.test}} for testing normality
@@ -75,6 +75,7 @@
 #' @param errorbar.display default "CI" (confidence interval), which type of
 #'   errorbar should be displayed around the mean point? Other options
 #'   include "SEM" (standard error of the mean) and "SD" (standard dev).
+#'   "none" removes it entirely much like \code{\link[stats]{interaction.plot}}
 #' @param PlotSave a logical indicating whether the user wants to save the plot
 #'  as a png file
 #' @param xlab,ylab Labels for `x` and `y` axis variables. If `NULL` (default),
@@ -131,9 +132,9 @@
 #' @references: ANOVA: Delacre, Leys, Mora, & Lakens, *PsyArXiv*, 2018
 #'
 #' @author Chuck Powell
-#' @seealso \code{\link[stats]{aov}}, \code{\link[car]{leveneTest}},
+#' @seealso \code{\link[stats]{aov}}, \code{\link{BrownForsytheTest}},
 #' \code{sjstats::anova_stats}, \code{\link[stats]{replications}},
-#' \code{\link[stats]{shapiro.test}}
+#' \code{\link[stats]{shapiro.test}}, \code{\link[stats]{interaction.plot}}
 #' @examples
 #'
 #' Plot2WayANOVA(mpg ~ am * cyl, mtcars, plottype = "line")
@@ -153,12 +154,12 @@
 #' @import ggplot2
 #' @import rlang
 #' @importFrom methods is
-#' @importFrom stats anova aov lm pf qt replications sd symnum residuals shapiro.test
+#' @importFrom stats anova aov lm pf qt replications sd symnum residuals shapiro.test AIC BIC
 #' @importFrom dplyr as_tibble case_when group_by summarise %>% n select filter
-#' @importFrom car leveneTest Anova
 #' @importFrom sjstats anova_stats
-#' @importFrom broom glance
 #' @importFrom DescTools PostHocTest
+#' @importFrom BayesFactor anovaBF
+#' @importFrom tidyr complete
 #' @export
 #'
 Plot2WayANOVA <- function(formula,
@@ -306,7 +307,30 @@ Plot2WayANOVA <- function(formula,
     warning(paste(sum(missing)), " case(s) removed because of missing data")
   }
   dataframe <- dataframe[!missing, ]
-
+  
+  # -------- Check cell counts ----------------
+  
+  checkcells <- 
+    dataframe %>%
+    group_by(!!sym(iv1), !!sym(iv2)) %>%
+    summarize(count = n()) %>%
+    ungroup() %>%
+    complete(!!sym(iv1), !!sym(iv2), fill = list(count = 0))
+  
+  if (any(checkcells$count == 0)) {
+    print(checkcells)
+    stop(paste0(
+      "\n--- MAJOR Problem! ---\n",
+      "You have one or more cells with ZERO observations.\n"
+    ))
+  } else if (any(checkcells$count <= 2)){
+    message(paste0(
+      "\n\t\t\t\t--- WARNING! ---\n",
+      "\t\tYou have one or more cells with less than 3 observations.\n"
+    ))
+    print(checkcells)
+  }
+  
   # -------- Build summary dataframe ----------------
 
   newdata <- dataframe %>%
@@ -342,13 +366,11 @@ Plot2WayANOVA <- function(formula,
   # run analysis of variance
   MyAOV <- aov(formula, dataframe)
   # force to Type 2 sums of squares
-  MyAOVt2 <- car::Anova(MyAOV, type = 2)
+  MyAOVt2 <- aovtype2(MyAOV)
   # get more detailed information including effect sizes
   WithETA <- sjstats::anova_stats(MyAOVt2)
-  # creating model summary dataframe
-  model_summary <- broom::glance(MyAOV)
   # Run Brown-Forsythe
-  BFTest <- car::leveneTest(MyAOV)
+  BFTest <- BrownForsytheTest(formula, dataframe)
   # Grab the residuals and run Shapiro-Wilk
   MyAOV_residuals <- residuals(object = MyAOV)
   if (nrow(dataframe) < 5000){
@@ -357,7 +379,7 @@ Plot2WayANOVA <- function(formula,
     SWTest <- NULL
   }
 
-  # Grab on the effects that were significant in omnibuds test
+  # Grab the effects that were significant in omnibuds test
   sigfactors <- filter(WithETA, p.value <= 1 - confidence) %>% select(term)
   if (nrow(sigfactors) > 0) {
     posthocresults <- PostHocTest(MyAOV,
@@ -368,6 +390,19 @@ Plot2WayANOVA <- function(formula,
   } else {
     posthocresults <- "No signfiicant effects"
   }
+  
+  bf_models <- BayesFactor::anovaBF(formula = formula, 
+                                    data = dataframe, 
+                                    progress = FALSE)
+  bf_models <- 
+    as_tibble(bf_models, rownames = "model") %>%
+    select(model:error) %>% 
+    arrange(desc(bf)) %>%
+    mutate(support = bf_display(bf = bf, display_type = "support")) %>%
+    mutate(margin_of_error = error) %>%
+    select(-error)
+  
+  # return(bf_models)
 
   # -------- save the common plot items as a list to be used ---------
 
@@ -375,32 +410,22 @@ Plot2WayANOVA <- function(formula,
   cipercent <- round(confidence * 100, 2)
   # if `title` is not provided, use this generic
   if (is.null(title)) {
+    title <- paste("Interaction plot ", deparse(formula, width.cutoff = 80), collapse="")
     if (errorbar.display == "CI") {
-      title <- bquote(
-        "Group means with" ~ .(cipercent) * "% confidence intervals")
+      title <- bquote(.(title) * " with" ~ .(cipercent) * "% conf ints")
     } else if (errorbar.display == "SEM") {
-      title <- "Group means with standard error of the mean"
+      title <- bquote(.(title) * " with standard error of the mean")
     } else if (errorbar.display == "SD") {
-      title <- "Group means with standard deviation"
+      title <- bquote(.(title) * " with standard deviations")
+    } else {
+      title <- title
     }
   }
   
-  # compute CI's for R squared using Olkin and Finn's approximation
-  # denominator <- (nrow(dataframe)^2 - 1) * (3 + nrow(dataframe))
-  # numerator <- (4 * model_summary$r.squared) * ((1 - model_summary$r.squared)^2) * (nrow(dataframe) - 2 - 1)^2
-  # ser2 <- sqrt(numerator / denominator)
-  # tvalue <- qt((1 - confidence) / 2, nrow(dataframe) - 3)
-  # limit1 <- model_summary$r.squared - tvalue * ser2
-  # limit2 <- model_summary$r.squared + tvalue * ser2
-  # ULr2 <- max(limit1, limit2)
-  # LLr2 <- min(limit1, limit2)
 
   # make pretty labels
-  # rsquared <- round(model_summary$r.squared, 3)
-  # cilower <- round(LLr2, 3)
-  # ciupper <- round(ULr2, 3)
-  AICnumber <- round(model_summary$AIC, 1)
-  BICnumber <- round(model_summary$BIC, 1)
+  AICnumber <- round(stats::AIC(MyAOV), 1)
+  BICnumber <- round(stats::BIC(MyAOV), 1)
   eta2iv1 <- WithETA[1, 7]
   eta2iv2 <- WithETA[2, 7]
   eta2interaction <- WithETA[3, 7]
@@ -474,43 +499,68 @@ Plot2WayANOVA <- function(formula,
 
   # -------- switch for bar versus line plot ---------
 
-  switch(plottype,
-    bar =
-      p <- p +
-        geom_bar(
-          stat = "identity",
-          position = "dodge"
-        ) +
-        geom_errorbar(aes(ymin = LowerBound, ymax = UpperBound),
-          width = .5,
-          size = ci.line.size,
-          position = position_dodge(0.9),
-          show.legend = FALSE
-        ),
-    line =
-      p <- p +
-        geom_errorbar(aes(
-          ymin = LowerBound,
-          ymax = UpperBound
-        ),
-        width = .2,
-        size = ci.line.size,
-        position = position_dodge(ci.dodge)
-        ) +
-        geom_line(
-          aes_string(linetype = iv2),
-          size = interact.line.size,
-          position = position_dodge(mean.dodge)
-        ) +
-        geom_point(aes(y = TheMean),
-          shape = mean.shape,
-          size = mean.size,
-          color = mean.color,
-          alpha = 1,
-          position = position_dodge(mean.dodge)
-        )
-  )
-
+  if (errorbar.display != "none") {
+    switch(plottype,
+           bar =
+             p <- p +
+             geom_bar(
+               stat = "identity",
+               position = "dodge"
+             ) +
+             geom_errorbar(aes(ymin = LowerBound, ymax = UpperBound),
+                           width = .5,
+                           size = ci.line.size,
+                           position = position_dodge(0.9),
+                           show.legend = FALSE
+             ),
+           line =
+             p <- p +
+             geom_errorbar(aes(
+               ymin = LowerBound,
+               ymax = UpperBound
+             ),
+             width = .2,
+             size = ci.line.size,
+             position = position_dodge(ci.dodge)
+             ) +
+             geom_line(
+               aes_string(linetype = iv2),
+               size = interact.line.size,
+               position = position_dodge(mean.dodge)
+             ) +
+             geom_point(aes(y = TheMean),
+                        shape = mean.shape,
+                        size = mean.size,
+                        color = mean.color,
+                        alpha = 1,
+                        position = position_dodge(mean.dodge)
+             )
+    )
+  } else {
+    switch(plottype,
+           bar =
+             p <- p +
+             geom_bar(
+               stat = "identity",
+               position = "dodge"
+             ),
+           line =
+             p <- p +
+             geom_line(
+               aes_string(linetype = iv2),
+               size = interact.line.size,
+               position = position_dodge(mean.dodge)
+             ) +
+             geom_point(aes(y = TheMean),
+                        shape = mean.shape,
+                        size = mean.size,
+                        color = mean.color,
+                        alpha = 1,
+                        position = position_dodge(mean.dodge)
+             )
+    )
+  }
+  
   # -------- Add box or violin if needed ---------
 
   if (!is.null(overlay.type)) {
@@ -602,8 +652,8 @@ Plot2WayANOVA <- function(formula,
   }
 
   # -------- Warn user of unbalanced design ----------------
-
-  if (is.list(replications(formula, dataframe))) {
+  
+  if (!all(checkcells$count == checkcells$count[1])) {
     rsquaredx <- round(1 - (MyAOVt2$`Sum Sq`[4] / sum(MyAOVt2$`Sum Sq`[1:4])), 3)
     message(paste0(
       "\n\t\t\t\t--- WARNING! ---\n",
@@ -616,12 +666,14 @@ Plot2WayANOVA <- function(formula,
   else {
     message("\nYou have a balanced design. \n")
   }
+  
+#  return(checkcells)
   print(WithETA)
 
   # -------- Print tests and tables ----------------
 
-  message("\nMeasures of overall model fit\n")
-  print(model_summary)
+  # message("\nMeasures of overall model fit\n")
+  # print(model_summary)
   message("\nTable of group means\n")
   print(newdata)
   message("\nPost hoc tests for all effects that were significant\n")
@@ -639,11 +691,13 @@ Plot2WayANOVA <- function(formula,
     }
     print(SWTest)
   }
+  message("\nBayesian analysis of models in order\n")
+  print(bf_models)
   
-  ### -----  adding optional ggplot.component ----------
+  # -------- adding optional ggplot.component ----------
   p <- p + ggplot.component
   
-  #### -------- Print the plot itself ----------------
+  # -------- Print the plot itself ----------------
   
   message("\nInteraction graph plotted...")
   print(p)
@@ -653,11 +707,12 @@ Plot2WayANOVA <- function(formula,
 
   whattoreturn <- list(
     ANOVATable = WithETA,
-    ModelSummary = model_summary,
+    # ModelSummary = model_summary,
     MeansTable = newdata,
     PosthocTable = posthocresults,
     BFTest = BFTest,
-    SWTest = SWTest
+    SWTest = SWTest,
+    Bayesian_models = bf_models
   )
   if (PlotSave) {
     ggsave(potentialfname, device = "png")
